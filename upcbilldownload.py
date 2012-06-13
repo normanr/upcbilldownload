@@ -86,6 +86,8 @@ for tr in soup.table('tr'):
   if os.path.exists(localPdf):
     continue
 
+  print 'Fetching %s...' % localPdf
+
   br.form['billref'] = billref
 
   pdf_data = pdf.open(br.click()).read()
