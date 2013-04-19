@@ -94,3 +94,6 @@ for tr in soup.table('tr'):
 
   with open(localPdf, 'wb') as f:
     f.write(pdf_data)
+
+  if 'postprocess' in config:
+    subprocess.check_call([config['postprocess'], localPdf])
