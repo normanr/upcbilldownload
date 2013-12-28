@@ -3,6 +3,7 @@
 import BeautifulSoup
 import cookielib
 import datetime
+import getpass
 import json
 import mechanize
 import os
@@ -17,6 +18,9 @@ import urlparse
 # { "username": "user@example.com", "passsword": "letmein" }
 with open(os.path.expanduser('~/.upcbilldownload')) as fp:
   config = json.load(fp)
+
+if not config.get('password'):
+  config['password'] = getpass.getpass()
 
 if len(sys.argv) > 1:
   os.chdir(sys.argv[1])
