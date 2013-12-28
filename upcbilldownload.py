@@ -41,16 +41,13 @@ def debug():
   pdf.set_debug_responses(True)
 
 cj = mechanize.CookieJar()
-br.addheaders = [('User-Agent', 'upcbilldownload/0.1')]
+br.addheaders = [('User-Agent', 'upcbilldownload/0.2')]
 br.set_cookiejar(cj)
 pdf.addheaders = br.addheaders
 pdf.set_cookiejar(cj)
 
 # Index - Get php session cookie
-br.open('https://service.upc.ie/cckservices/myupc/')
-
-# Invoices
-br.open('https://service.upc.ie/j_ebpp/ebp/action/invoice.do')
+br.open('https://service.upc.ie/my-upc/portal/')
 
 # Login
 br.select_form(nr=0)
@@ -58,6 +55,9 @@ br.form['username'] = config['username']
 br.form['password'] = config['password']
 
 br.submit()
+
+# Invoices
+br.open('https://service.upc.ie/j_ebpp/ebp/action/invoice.do')
 
 # Prepare form for downloading pdfs
 br.select_form(nr=0)
