@@ -41,7 +41,7 @@ def debug():
   pdf.set_debug_responses(True)
 
 cj = mechanize.CookieJar()
-br.addheaders = [('User-Agent', 'upcbilldownload/0.2')]
+br.addheaders = [('User-Agent', 'upcbilldownload/0.3')]
 br.set_cookiejar(cj)
 pdf.addheaders = br.addheaders
 pdf.set_cookiejar(cj)
@@ -56,33 +56,33 @@ br.form['password'] = config['password']
 
 br.submit()
 
-# Invoices
-br.open('https://service.upc.ie/j_ebpp/ebp/action/invoice.do')
-
-# Prepare form for downloading pdfs
-br.select_form(nr=0)
-br.form.action = 'https://service.upc.ie/j_ebpp/ebp/action/invoicedetails.do'
-br.form.set_all_readonly(False)
-
-# Parse html and download pdfs
+# Parse html for Account Number
 html = br.response().read()
 soup = BeautifulSoup.BeautifulSoup(html)
 
-current_account = ''
+# Account Number
+current_account_attrs = {'sorrisoid':"simple-form_customer_id.element.value"}
+current_account = soup.find('span', attrs=current_account_attrs).string
 
-for tr in soup.table('tr'):
-  tds = tr('td')
+# My Bills
+br.follow_link(text='My bills')
 
-  if len(tds) == 1:
-    # Account Number
-    current_account = tds[0].string.split()[-1]
+# Parse html for billing periods
+html = br.response().read()
+soup = BeautifulSoup.BeautifulSoup(html)
 
-  if len(tds) != 4:
-    continue
+# Billing periods
+list_billing_periods_attrs = {'name':'list-billing_periods'}
+list_billing_periods = soup.find('select', attrs=list_billing_periods_attrs)
 
-  # Bill ref number, Statement Date, Payment Due Date, Amount to be Paid
-  billref = tds[0].a.string.strip()
-  statement_date = datetime.datetime.strptime(tds[1].string, '%d/%m/%Y')
+# Prepare url for billing period select post
+submit_form = soup.find('form', attrs={'method':'post'})
+url = submit_form.get('action')
+url += '&_internalMovement=V:CHOICE:link.update_MYUPC_bill.summary';
+
+for billing_period_option in list_billing_periods.findAll('option'):
+  billing_period = billing_period_option.get('value')
+  statement_date = datetime.datetime.strptime(billing_period, '%Y%m%d')
 
   localPdf = 'upc-%s-%s.pdf' % (
       current_account, statement_date.strftime('%Y-%m'))
@@ -92,9 +92,11 @@ for tr in soup.table('tr'):
 
   print 'Fetching %s...' % localPdf
 
-  br.form['billref'] = billref
+  data = urllib.urlencode({'list-billing_periods':billing_period})
+  br.open(url, data=data)
 
-  pdf_data = pdf.open(br.click()).read()
+  pdf_click = br.click_link(text='Bill as PDF')
+  pdf_data = pdf.open(pdf_click).read()
 
   with open(localPdf, 'wb') as f:
     f.write(pdf_data)
