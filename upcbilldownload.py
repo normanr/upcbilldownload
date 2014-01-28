@@ -96,8 +96,13 @@ for billing_period_option in list_billing_periods.findAll('option'):
   br.open(url, data=data)
 
   pdf_click = br.click_link(text='Bill as PDF')
-  pdf_data = pdf.open(pdf_click).read()
+  pdf_response = pdf.open(pdf_click)
 
+  if pdf_response.info()['content-type'] != 'application/pdf':
+    print 'Skipping %s, not available.' % localPdf
+    continue
+
+  pdf_data = pdf_response.read()
   with open(localPdf, 'wb') as f:
     f.write(pdf_data)
 
