@@ -65,7 +65,7 @@ current_account_attrs = {'sorrisoid':"simple-form_customer_id.element.value"}
 current_account = soup.find('span', attrs=current_account_attrs).string
 
 # My Bills
-br.follow_link(text='My bills')
+br.follow_link(predicate=lambda l: dict(l.attrs).get('id') == 'menu.billing.bill')
 
 # Parse html for billing periods
 html = br.response().read()
