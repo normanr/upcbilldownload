@@ -47,7 +47,7 @@ pdf.addheaders = br.addheaders
 pdf.set_cookiejar(cj)
 
 # Index - Get php session cookie
-br.open('https://service.upc.ie/my-upc/portal/')
+br.open('https://www.virginmedia.ie/myvirginmedia/portal/')
 
 # Login
 br.select_form(nr=0)
