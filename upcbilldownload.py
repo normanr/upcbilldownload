@@ -1,16 +1,13 @@
 #!/usr/bin/python
 
 import BeautifulSoup
-import cookielib
 import datetime
 import getpass
 import json
 import mechanize
 import os
-import re
 import subprocess
 import sys
-import time
 import urllib
 import urlparse
 
@@ -46,15 +43,30 @@ br.set_cookiejar(cj)
 pdf.addheaders = br.addheaders
 pdf.set_cookiejar(cj)
 
+def open_with_login(browser, url, data=None):
+  result = browser.open(url, data)
+  while '/login/' in browser.geturl():
+    response_url = urlparse.urlparse(browser.geturl())
+    qs = urlparse.parse_qs(response_url.query)
+
+    if qs['TAM_OP'][0] == 'login':
+      # Login
+      browser.select_form(nr=0)
+      browser.form['username'] = config['username']
+      browser.form['password'] = config['password']
+
+      browser.submit()
+
+    elif qs['TAM_OP'][0] == 'login_success':
+      result = browser.open(url, data)
+      continue
+
+    else:
+      raise StandardError('Login failed: %s' % browser.geturl())
+  return result
+
 # Index - Get php session cookie
-br.open('https://www.virginmedia.ie/myvirginmedia/portal/')
-
-# Login
-br.select_form(nr=0)
-br.form['username'] = config['username']
-br.form['password'] = config['password']
-
-br.submit()
+open_with_login(br, 'https://www.virginmedia.ie/myvirginmedia/portal/')
 
 # Parse html for Account Number
 html = br.response().read()
@@ -65,7 +77,7 @@ current_account_attrs = {'sorrisoid':"simple-form_customer_id.element.value"}
 current_account = soup.find('span', attrs=current_account_attrs).string
 
 # My Bills
-br.follow_link(predicate=lambda l: dict(l.attrs).get('id') == 'menu.billing.bill')
+open_with_login(br, br.click_link(predicate=lambda l: dict(l.attrs).get('id') == 'menu.billing.bill'))
 
 # Parse html for billing periods
 html = br.response().read()
@@ -77,30 +89,36 @@ list_billing_periods = soup.find('select', attrs=list_billing_periods_attrs)
 
 # Prepare url for billing period select post
 submit_form = soup.find('form', attrs={'method':'post'})
-url = submit_form.get('action')
-url += '&_internalMovement=V:CHOICE:link.update_MYUPC_bill.summary';
+url = urlparse.urljoin(br.geturl(), submit_form.get('action'))
+url += '&_internalMovement=V:CHOICE:link.update_MYUPC_bill.summary'
 
-for billing_period_option in list_billing_periods.findAll('option'):
-  billing_period = billing_period_option.get('value')
+def fetchPdf(billing_period):
   statement_date = datetime.datetime.strptime(billing_period, '%Y%m%d')
 
   localPdf = 'upc-%s-%s.pdf' % (
       current_account, statement_date.strftime('%Y-%m'))
 
   if os.path.exists(localPdf):
-    continue
+    return
 
   print 'Fetching %s...' % localPdf
 
   data = urllib.urlencode({'list-billing_periods':billing_period})
-  br.open(url, data=data)
+  open_with_login(br, url, data=data)
 
   pdf_click = br.click_link(text='Bill as PDF')
-  pdf_response = pdf.open(pdf_click)
+  tries = 0
+  while True:
+    pdf_response = open_with_login(pdf, pdf_click)
+    print pdf_response.info()['content-type']
 
-  if pdf_response.info()['content-type'] != 'application/pdf':
-    print 'Skipping %s, not available.' % localPdf
-    continue
+    if pdf_response.info()['content-type'] == 'application/pdf':
+      break
+
+    tries += 1
+    if tries > 3:
+      print 'Skipping %s, exhausted retries.' % localPdf
+      return
 
   pdf_data = pdf_response.read()
   with open(localPdf, 'wb') as f:
@@ -108,3 +126,6 @@ for billing_period_option in list_billing_periods.findAll('option'):
 
   if 'postprocess' in config:
     subprocess.check_call([config['postprocess'], localPdf])
+
+for billing_period_option in list_billing_periods.findAll('option'):
+  fetchPdf(billing_period_option.get('value'))
