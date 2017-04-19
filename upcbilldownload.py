@@ -74,7 +74,7 @@ soup = BeautifulSoup.BeautifulSoup(html)
 
 # Account Number
 current_account_attrs = {'sorrisoid':"simple-form_customer_id.element.value"}
-current_account = soup.find('span', attrs=current_account_attrs).string
+current_account = soup.find('div', attrs=current_account_attrs).string
 
 # My Bills
 open_with_login(br, br.click_link(predicate=lambda l: dict(l.attrs).get('id') == 'menu.billing.bill'))
